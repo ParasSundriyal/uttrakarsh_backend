@@ -9,17 +9,17 @@ const {
   getAttachment,
 } = require('../controllers/grievanceController');
 const { protect, authorize } = require('../middleware/auth');
-const multer = require('multer');
-const { storage } = require('../services/gridfs');
+const upload = require('../middleware/upload');
 
-const upload = multer({ storage });
+
+
 
 // Protect all routes
-// router.use(protect);
+router.use(protect);
 
 // Routes
 router
-  .route('/')
+  .route('/create')
   .get(getGrievances)
   .post(upload.single('photo'), createGrievance);
 
@@ -30,6 +30,7 @@ router
 
 router.post('/:id/comments', addComment);
 
+// This route might not be needed if Cloudinary is used, but kept for legacy support
 router.get('/attachments/:filename', getAttachment);
 
-module.exports = router; 
+module.exports = router;
