@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 const {
   createGrievance,
@@ -6,31 +6,29 @@ const {
   getGrievance,
   updateGrievance,
   addComment,
-  getAttachment,
-} = require('../controllers/grievanceController');
-const { protect, authorize } = require('../middleware/auth');
-const upload = require('../middleware/upload');
-
-
-
+  // getAttachment, // ❌ REMOVE this line
+} = require("../controllers/grievanceController");
+const { protect } = require("../middleware/auth");
+const upload = require("../middleware/upload");
+const multerErrorHandler = require("../utils/multerErrorHandler");
 
 // Protect all routes
 router.use(protect);
 
 // Routes
 router
-  .route('/create')
-  .get(getGrievances)
-  .post(upload.single('photo'), createGrievance);
+  .route("/create")
+  .post(upload.single("photo"), multerErrorHandler, createGrievance);
+
+router.route("/").get(getGrievances);
 
 router
-  .route('/:id')
+  .route("/:id")
   .get(getGrievance)
-  .put(upload.single('photo'), updateGrievance);
+  .put(upload.single("photo"), updateGrievance);
 
-router.post('/:id/comments', addComment);
+router.post("/:id/comments", addComment);
 
-// This route might not be needed if Cloudinary is used, but kept for legacy support
-router.get('/attachments/:filename', getAttachment);
+// router.get('/attachments/:filename', getAttachment); ❌ REMOVE this route
 
 module.exports = router;

@@ -28,8 +28,8 @@ const grievanceSchema = new mongoose.Schema({
     default: 'Medium',
   },
   attachments: [{
-    filename: String,
-    path: String,
+    url: String,
+    public_id: String,
     uploadedAt: {
       type: Date,
       default: Date.now,

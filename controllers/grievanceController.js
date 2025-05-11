@@ -1,5 +1,4 @@
-const Grievance = require('../models/Grievance');
-const { gfs } = require('../services/gridfs');
+const Grievance = require("../models/Grievance");
 
 // @desc    Create new grievance
 // @route   POST /api/grievances
@@ -9,8 +8,10 @@ exports.createGrievance = async (req, res) => {
     const { title, description, category, priority } = req.body;
 
     const attachments = req.file
-      ? [{ filename: req.file.filename, path: req.file.id ? req.file.id.toString() : undefined }]
+      ? [{ url: req.file.path, public_id: req.file.filename }]
       : [];
+
+    // console.log("attachments:", attachments);
 
     const grievance = await Grievance.create({
       title,
@@ -26,6 +27,7 @@ exports.createGrievance = async (req, res) => {
       data: grievance,
     });
   } catch (err) {
+    console.error("Grievance creation error:", err);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -33,42 +35,29 @@ exports.createGrievance = async (req, res) => {
   }
 };
 
+
 // @desc    Get all grievances
 // @route   GET /api/grievances
 // @access  Private
 exports.getGrievances = async (req, res) => {
   try {
-    let query;
+    let query =
+      req.user.role !== "admin"
+        ? Grievance.find({ submittedBy: req.user.id })
+        : Grievance.find();
 
-    // If user is not admin, only show their grievances
-    if (req.user.role !== 'admin') {
-      query = Grievance.find({ submittedBy: req.user.id });
-    } else {
-      query = Grievance.find();
-    }
-
-    // Add filters
-    if (req.query.status) {
-      query = query.find({ status: req.query.status });
-    }
-    if (req.query.category) {
+    if (req.query.status) query = query.find({ status: req.query.status });
+    if (req.query.category)
       query = query.find({ category: req.query.category });
-    }
-    if (req.query.priority) {
+    if (req.query.priority)
       query = query.find({ priority: req.query.priority });
-    }
-
-    // Add sorting
-    if (req.query.sort) {
-      const sortBy = req.query.sort.split(',').join(' ');
-      query = query.sort(sortBy);
-    } else {
-      query = query.sort('-createdAt');
-    }
+    query = req.query.sort
+      ? query.sort(req.query.sort.split(",").join(" "))
+      : query.sort("-createdAt");
 
     const grievances = await query
-      .populate('submittedBy', 'name email studentId department')
-      .populate('assignedTo', 'name email');
+      .populate("submittedBy", "name email studentId department")
+      .populate("assignedTo", "name email");
 
     res.status(200).json({
       success: true,
@@ -76,10 +65,7 @@ exports.getGrievances = async (req, res) => {
       data: grievances,
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -89,34 +75,30 @@ exports.getGrievances = async (req, res) => {
 exports.getGrievance = async (req, res) => {
   try {
     const grievance = await Grievance.findById(req.params.id)
-      .populate('submittedBy', 'name email studentId department')
-      .populate('assignedTo', 'name email')
-      .populate('comments.user', 'name email role');
+      .populate("submittedBy", "name email studentId department")
+      .populate("assignedTo", "name email")
+      .populate("comments.user", "name email role");
 
-    if (!grievance) {
-      return res.status(404).json({
-        success: false,
-        message: 'Grievance not found',
-      });
+    if (!grievance)
+      return res
+        .status(404)
+        .json({ success: false, message: "Grievance not found" });
+
+    if (
+      req.user.role !== "admin" &&
+      grievance.submittedBy._id.toString() !== req.user.id
+    ) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Not authorized to access this grievance",
+        });
     }
 
-    // Check if user is authorized to view the grievance
-    if (req.user.role !== 'admin' && grievance.submittedBy._id.toString() !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to access this grievance',
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: grievance,
-    });
+    res.status(200).json({ success: true, data: grievance });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -126,29 +108,27 @@ exports.getGrievance = async (req, res) => {
 exports.updateGrievance = async (req, res) => {
   try {
     let grievance = await Grievance.findById(req.params.id);
+    if (!grievance)
+      return res
+        .status(404)
+        .json({ success: false, message: "Grievance not found" });
 
-    if (!grievance) {
-      return res.status(404).json({
-        success: false,
-        message: 'Grievance not found',
-      });
+    if (
+      req.user.role !== "admin" &&
+      grievance.submittedBy.toString() !== req.user.id
+    ) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Not authorized to update this grievance",
+        });
     }
 
-    // Check if user is authorized to update the grievance
-    if (req.user.role !== 'admin' && grievance.submittedBy.toString() !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to update this grievance',
-      });
-    }
-
-    // Only allow status updates for admins
-    if (req.user.role === 'admin' && req.body.status) {
+    if (req.user.role === "admin" && req.body.status)
       grievance.status = req.body.status;
-    }
 
-    // Allow users to update their own grievances
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== "admin") {
       const { title, description, category, priority } = req.body;
       grievance.title = title || grievance.title;
       grievance.description = description || grievance.description;
@@ -156,28 +136,18 @@ exports.updateGrievance = async (req, res) => {
       grievance.priority = priority || grievance.priority;
     }
 
-    // Handle file attachments
-    if (req.files && req.files.length > 0) {
-      grievance.attachments = [
-        ...grievance.attachments,
-        ...req.files.map(file => ({
-          filename: file.filename,
-          path: file.path,
-        })),
-      ];
+    if (req.file) {
+      grievance.attachments.push({
+        url: req.file.path,
+        public_id: req.file.filename,
+      });
     }
 
     await grievance.save();
 
-    res.status(200).json({
-      success: true,
-      data: grievance,
-    });
+    res.status(200).json({ success: true, data: grievance });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -187,59 +157,25 @@ exports.updateGrievance = async (req, res) => {
 exports.addComment = async (req, res) => {
   try {
     const grievance = await Grievance.findById(req.params.id);
+    if (!grievance)
+      return res
+        .status(404)
+        .json({ success: false, message: "Grievance not found" });
 
-    if (!grievance) {
-      return res.status(404).json({
-        success: false,
-        message: 'Grievance not found',
-      });
+    if (
+      req.user.role !== "admin" &&
+      grievance.submittedBy.toString() !== req.user.id
+    ) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized to comment" });
     }
 
-    // Check if user is authorized to comment
-    if (req.user.role !== 'admin' && grievance.submittedBy.toString() !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to comment on this grievance',
-      });
-    }
-
-    grievance.comments.push({
-      text: req.body.text,
-      user: req.user.id,
-    });
-
+    grievance.comments.push({ text: req.body.text, user: req.user.id });
     await grievance.save();
 
-    res.status(200).json({
-      success: true,
-      data: grievance,
-    });
+    res.status(200).json({ success: true, data: grievance });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
-
-exports.getAttachment = (req, res) => {
-  if (!gfs) {
-    return res.status(500).json({ success: false, message: 'File system not initialized' });
-  }
-  gfs.files.findOne({ filename: req.params.filename }, (err, file) => {
-    if (!file || file.length === 0) {
-      return res.status(404).json({ success: false, message: 'No file exists' });
-    }
-    // Check if image
-    if (file.contentType && file.contentType.startsWith('image/')) {
-      res.set('Content-Type', file.contentType);
-      const readstream = gfs.createReadStream(file.filename);
-      readstream.pipe(res);
-    } else {
-      // For non-images, force download
-      res.set('Content-Disposition', `attachment; filename="${file.filename}"`);
-      const readstream = gfs.createReadStream(file.filename);
-      readstream.pipe(res);
-    }
-  });
-}; 
