@@ -15,7 +15,7 @@ const grievanceSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Please select a category'],
-    enum: ['Academic', 'Administrative', 'Infrastructure', 'Other'],
+    enum: ['Academic', 'Administration', 'Infrastructure', 'Hostel', 'General'],
   },
   status: {
     type: String,
