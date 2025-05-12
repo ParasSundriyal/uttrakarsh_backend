@@ -22,12 +22,17 @@ const userSchema = new mongoose.Schema({
   },
   studentId: {
     type: String,
-    required: [true, 'Please provide your student ID'],
+    required: function() {
+      return this.role === 'student';
+    },
     unique: true,
+    sparse: true,
   },
   course: {
     type: String,
-    required: [true, 'Please provide your course'],
+    required: function() {
+      return this.role === 'student';
+    },
   },
   role: {
     type: String,
