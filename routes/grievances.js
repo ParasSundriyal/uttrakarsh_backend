@@ -17,10 +17,9 @@ router.use(protect);
 
 // Routes
 router
-  .route("/create")
-  .post(upload.single("photo"), multerErrorHandler, createGrievance);
-
-router.route("/").get(getGrievances);
+  .route("/")
+  .post(upload.single("photo"), multerErrorHandler, createGrievance)
+  .get(getGrievances);
 
 router
   .route("/:id")

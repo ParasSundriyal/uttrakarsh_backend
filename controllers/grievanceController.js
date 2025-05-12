@@ -1,8 +1,17 @@
 const Grievance = require("../models/Grievance");
+const Department = require('../models/Department');
 
 // @desc    Create new grievance
 // @route   POST /api/grievances
 // @access  Private
+const categoryToDepartment = {
+  Academic: 'ACAD001',
+  Administration: 'ADMIN001',
+  Infrastructure: 'INFRA001',
+  Hostel: 'HOSTEL001',
+  General: 'GEN001',
+};
+
 exports.createGrievance = async (req, res) => {
   try {
     const { title, description, category, priority } = req.body;
@@ -11,7 +20,12 @@ exports.createGrievance = async (req, res) => {
       ? [{ url: req.file.path, public_id: req.file.filename }]
       : [];
 
-    // console.log("attachments:", attachments);
+    // Find department by category
+    const departmentId = categoryToDepartment[category];
+    let department = null;
+    if (departmentId) {
+      department = await Department.findOne({ departmentId });
+    }
 
     const grievance = await Grievance.create({
       title,
@@ -20,6 +34,7 @@ exports.createGrievance = async (req, res) => {
       priority,
       submittedBy: req.user.id,
       attachments,
+      department: department ? department._id : undefined,
     });
 
     res.status(201).json({
@@ -123,6 +138,12 @@ exports.updateGrievance = async (req, res) => {
           success: false,
           message: "Not authorized to update this grievance",
         });
+    }
+
+    // If admin is rejecting, delete the grievance
+    if (req.user.role === "admin" && req.body.status === "Rejected") {
+      await Grievance.findByIdAndDelete(req.params.id);
+      return res.status(200).json({ success: true, message: "Grievance rejected and deleted." });
     }
 
     if (req.user.role === "admin" && req.body.status)

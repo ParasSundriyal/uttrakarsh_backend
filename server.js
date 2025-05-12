@@ -30,6 +30,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/grievances', require('./routes/grievances'));
 app.use('/api/admin', require('./routes/admin'));
+const departmentAuthRoutes = require('./routes/departmentAuth');
+app.use('/api/department', departmentAuthRoutes);
+const departmentRoutes = require('./routes/department');
+app.use('/api/department', departmentRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

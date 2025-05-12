@@ -92,6 +92,15 @@ exports.updateGrievance = async (req, res) => {
       });
     }
 
+    // If status is Rejected, delete the grievance
+    if (status === "Rejected") {
+      await Grievance.findByIdAndDelete(req.params.id);
+      return res.status(200).json({
+        success: true,
+        message: "Grievance rejected and deleted."
+      });
+    }
+
     // Update grievance
     if (status) grievance.status = status;
     if (assignedTo) grievance.assignedTo = assignedTo;
